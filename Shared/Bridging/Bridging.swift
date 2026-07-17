@@ -113,17 +113,19 @@ extension Bridging {
 
     /// Returns the identifier of the display with the active menu bar.
     static func getActiveMenuBarDisplayID() -> CGDirectDisplayID? {
-        guard let string = CGSCopyActiveMenuBarDisplayIdentifier(getMainConnection()) else {
-            logger.error("CGSCopyActiveMenuBarDisplayIdentifier returned nil")
-            return nil
+        if
+            let string = CGSCopyActiveMenuBarDisplayIdentifier(getMainConnection()),
+            let uuid = CFUUIDCreateFromString(nil, string.takeRetainedValue()),
+            let displayID = getActiveDisplayList().first(where: { getDisplayUUID(for: $0) == uuid })
+        {
+            return displayID
         }
-        guard let uuid = CFUUIDCreateFromString(nil, string.takeRetainedValue()) else {
-            logger.error("CFUUIDCreateFromString returned nil")
-            return nil
-        }
-        return getActiveDisplayList().first { displayID in
-            getDisplayUUID(for: displayID) == uuid
-        }
+
+        // macOS 26.4 and later can return nil from the private SkyLight API.
+        // Returning a usable display keeps the item-image cache available.
+        let fallback = CGMainDisplayID()
+        logger.warning("Active menu bar display unavailable; using main display \(fallback, privacy: .public)")
+        return fallback
     }
 }
 

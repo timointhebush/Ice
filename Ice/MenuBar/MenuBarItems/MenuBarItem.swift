@@ -363,7 +363,29 @@ private extension MenuBarItemTag.Namespace {
         // which are more likely not to have a bundle ID.
         if let sourcePID, let app = NSRunningApplication(processIdentifier: sourcePID) {
             self = .optional(app.bundleIdentifier ?? app.localizedName)
-        } else if let uuid = Self.uuidCache[itemWindow.windowID] {
+            return
+        }
+
+        // Control Center may reparent Ice's status items on macOS 26. Their
+        // source PID is consequently unavailable, but their unique titles
+        // remain stable and must retain the Ice namespace for the section
+        // control items to be found in the cache.
+        if let title = itemWindow.title, title.hasPrefix("Ice.ControlItem.") {
+            self = .ice
+            return
+        }
+
+        // If a non-Control Center owner is still known, it is a better stable
+        // namespace than a synthetic UUID when the AX source lookup fails.
+        if
+            let owningApp = itemWindow.owningApplication,
+            owningApp.bundleIdentifier != "com.apple.controlcenter"
+        {
+            self = .optional(owningApp.bundleIdentifier ?? itemWindow.ownerName ?? owningApp.localizedName)
+            return
+        }
+
+        if let uuid = Self.uuidCache[itemWindow.windowID] {
             self = .uuid(uuid)
         } else {
             let uuid = UUID()

@@ -45,4 +45,37 @@ enum AXHelpers {
     static func role(for element: UIElement) -> Role? {
         queue.sync { try? element.role() }
     }
+
+    static func parent(of element: UIElement) -> UIElement? {
+        queue.sync { try? element.attribute(.parent) }
+    }
+
+    /// Finds the menu bar near a display's origin without relying on its
+    /// corner pixel, which is unreliable on notched and Liquid Glass displays.
+    static func menuBarElement(nearDisplayOrigin displayOrigin: CGPoint) -> UIElement? {
+        let probeOffsets: [CGPoint] = [
+            CGPoint(x: 5, y: 12),
+            CGPoint(x: 40, y: 12),
+            CGPoint(x: 80, y: 12),
+            CGPoint.zero,
+        ]
+
+        for offset in probeOffsets {
+            let point = CGPoint(x: displayOrigin.x + offset.x, y: displayOrigin.y + offset.y)
+            guard var element = element(at: point) else {
+                continue
+            }
+            for _ in 0..<4 {
+                if role(for: element) == .menuBar {
+                    return element
+                }
+                guard let parent = parent(of: element) else {
+                    break
+                }
+                element = parent
+            }
+        }
+
+        return nil
+    }
 }

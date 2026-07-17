@@ -295,7 +295,13 @@ extension MenuBarItemManager {
         for item in items where context.isValidForCaching(item) {
             if item.sourcePID == nil {
                 logger.warning("Missing sourcePID for \(item.logString, privacy: .public)")
-                context.shouldClearCachedItemWindowIDs = true
+                // A source PID is unavailable for menu bar items whose owner
+                // does not expose an accessibility extras menu bar. Treating
+                // that as a cache invalidation creates a refresh loop that
+                // races with Ice Bar presentation on macOS 26.
+                //
+                // SourcePIDCache throttles retries until the running-app list
+                // changes, so retain the stable window-ID cache here.
             }
 
             if let temp = temporarilyShownItemContexts.first(where: { $0.tag == item.tag }) {

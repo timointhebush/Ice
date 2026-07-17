@@ -80,8 +80,13 @@ final class SourcePIDCache {
 
     /// State for the cache.
     private struct State {
+        /// Minimum delay before retrying a source-PID lookup that did not
+        /// match an accessibility menu bar item.
+        static let failedLookupTTL: TimeInterval = 30
+
         var apps = [CachedApplication]()
         var pids = [CGWindowID: pid_t]()
+        var failedLookups = [CGWindowID: Date]()
 
         /// Returns the latest bounds of the given window after ensuring
         /// that the bounds are stable (a.k.a. not currently changing).
@@ -151,9 +156,14 @@ final class SourcePIDCache {
                         continue
                     }
                     pids[window.windowID] = app.processIdentifier
+                    failedLookups.removeValue(forKey: window.windowID)
                     return
                 }
             }
+
+            // Some menu bar items cannot be mapped through Accessibility.
+            // Avoid repeating a full AX scan for them on every cache refresh.
+            failedLookups[window.windowID] = .now
         }
     }
 
@@ -222,6 +232,12 @@ final class SourcePIDCache {
         state.withLock { state in
             if let pid = state.pids[window.windowID] {
                 return pid
+            }
+            if
+                let failedAt = state.failedLookups[window.windowID],
+                Date.now.timeIntervalSince(failedAt) < State.failedLookupTTL
+            {
+                return nil
             }
             state.updatePID(for: window)
             return state.pids[window.windowID]
