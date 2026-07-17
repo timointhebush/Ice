@@ -20,7 +20,9 @@ final class UpdatesManager: NSObject, ObservableObject {
 
     /// The underlying updater controller.
     private(set) lazy var updaterController = SPUStandardUpdaterController(
-        startingUpdater: true,
+        // Floe does not publish a signed update feed yet. Do not contact the
+        // upstream Ice feed until Floe has its own release infrastructure.
+        startingUpdater: false,
         updaterDelegate: self,
         userDriverDelegate: self
     )
